@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Juego Simple</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center; /* Alinear el contenido en el centro vertical */
+            height: 100vh;
+            background-color: #f0f0f0; /* Color de fondo por defecto */
+        }
+        canvas {
+            border: 1px solid black;
+            background-color: #44B8D1; /* Color de fondo del juego (día) */
+            display: block;
+            margin: 0 auto;
+        }
+        #skinSelector {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-top: 20px; /* Espacio superior */
+            background-color: #f0f0f0;
+            position: absolute;
+            top: 50%; /* Centrar verticalmente */
+            left: 50%;
+            transform: translate(-50%, -50%); /* Centrar horizontal y verticalmente */
+        }
+        .arrow {
+            cursor: pointer;
+            font-size: 48px;
+            margin: 0 20px;
+        }
+        .skinDisplay img {
+            width: 100px;
+            height: 100px;
+        }
+    </style>
+</head>
+<body>
+    <div id="skinSelector">
+        <div class="arrow" id="leftArrow">&larr;</div>
+        <div class="skinDisplay">
+            <img id="selectedSkin" src="1.png" alt="Skin">
+        </div>
+        <div class="arrow" id="rightArrow">&rarr;</div>
+    </div>
+    <canvas id="gameCanvas"></canvas>
+
+    <script>
+        const skinSelector = document.getElementById('skinSelector');
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        const skins = ['1.png', '2.png', '3.png'];
+        let currentSkinIndex = 0;
+        let playerImage = new Image();
+        let sunImage = new Image();
+        let moonImage = new Image();
+        let cloudImage = new Image();
+        let starImage = new Image();
+
+        let isDay = true; // Variable para controlar si es de día o de noche
+        let score = 0; // Variable para llevar la cuenta del puntaje
+
+        document.getElementById('leftArrow').addEventListener('click', () => {
+            if (currentSkinIndex > 0) {
+                currentSkinIndex--;
+                updateSkinDisplay();
+            }
+        });
+
+        document.getElementById('rightArrow').addEventListener('click', () => {
+            if (currentSkinIndex < skins.length - 1) {
+                currentSkinIndex++;
+                updateSkinDisplay();
+            }
+        });
+
+        document.querySelector('.skinDisplay').addEventListener('click', () => {
+            playerImage.src = skins[currentSkinIndex];
+            startGame();
+        });
+
+        function updateSkinDisplay() {
+            document.getElementById('selectedSkin').src = skins[currentSkinIndex];
+        }
+
+        function startGame() {
+            skinSelector.style.display = 'none';
+            canvas.style.display = 'block';
+
+            resizeCanvas();
+
+            playerImage.onload = () => {
+                setInterval(createObstacle, 1000);
+                setInterval(createRedObstacle, 2000); // Crear bolas rojas con menos frecuencia
+                gameLoop();
+            };
+
+            sunImage.src = 'sun.png';
+            moonImage.src = 'moon.png';
+            cloudImage.src = 'cloud.png';
+            starImage.src = 'star.png';
+        }
+
+        // Ajustar el tamaño del canvas
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        let player = {
+            x: canvas.width / 2,
+            y: canvas.height - 120,
+            width: 100,  // Ajustar la anchura del personaje
+            height: 100  // Ajustar la altura del personaje
+        };
+
+        let obstacles = [];
+        let redObstacles = [];
+        let bullets = [];
+
+        const keys = {
+            left: false,
+            right: false
+        };
+
+        // Detectar teclas presionadas
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'ArrowLeft') keys.left = true;
+            if (e.code === 'ArrowRight') keys.right = true;
+        });
+
+        // Detectar teclas soltadas
+        document.addEventListener('keyup', (e) => {
+            if (e.code === 'ArrowLeft') keys.left = false;
+            if (e.code === 'ArrowRight') keys.right = false;
+        });
+
+        // Crear obstáculos amarillos
+        function createObstacle() {
+            let x = Math.random() * (canvas.width - 30);
+            obstacles.push({ x, y: 0, width: 30, height: 10, color: '#FFFF00' }); // Color amarillo
+        }
+
+        // Crear bolas rojas
+        function createRedObstacle() {
+            let x = Math.random() * (canvas.width - 30);
+            redObstacles.push({ x, y: 0, radius: 15 });
+        }
+
+        // Crear balas
+        function createBullet() {
+            bullets.push({ x: player.x + player.width / 2 - 2.5, y: player.y, width: 5, height: 10 });
+        }
+
+        // Comprobar colisiones entre dos objetos rectangulares
+        function rectCollision(rect1, rect2) {
+            return rect1.x < rect2.x + rect2.width &&
+                   rect1.x + rect1.width > rect2.x &&
+                   rect1.y < rect2.y + rect2.height &&
+                   rect1.y + rect1.height > rect2.y;
+        }
+
+        // Comprobar colisiones entre un objeto rectangular y un círculo
+        function rectCircleCollision(rect, circle) {
+            let distX = Math.abs(circle.x - rect.x - rect.width / 2);
+            let distY = Math.abs(circle.y - rect.y - rect.height / 2);
+
+            if (distX > (rect.width / 2 + circle.radius) || distY > (rect.height / 2 + circle.radius)) {
+                return false;
+            }
+
+            if (distX <= (rect.width / 2) || distY <= (rect.height / 2)) {
+                return true;
+            }
+
+            let dx = distX - rect.width / 2;
+            let dy = distY - rect.height / 2;
+            return (dx * dx + dy * dy <= (circle.radius * circle.radius));
+        }
+
+        // Actualizar estado del juego
+        function update() {
+            // Movimiento del personaje con teclado
+            if (keys.left && player.x > 0) player.x -= 5;
+            if (keys.right && player.x < canvas.width - player.width) player.x += 5;
+
+            bullets.forEach((bullet, index) => {
+                bullet.y -= 7;
+                if (bullet.y < 0) bullets.splice(index, 1);
+            });
+
+            obstacles.forEach((obstacle, index) => {
+                obstacle.y += 3;
+                if (obstacle.y > canvas.height) obstacles.splice(index, 1);
+            });
+
+            redObstacles.forEach((redObstacle, index) => {
+                redObstacle.y += 3;
+                if (redObstacle.y > canvas.height) redObstacles.splice(index, 1);
+            });
+
+            bullets.forEach((bullet, bIndex) => {
+                obstacles.forEach((obstacle, oIndex) => {
+                    if (rectCollision(bullet, obstacle)) {
+                        obstacles.splice(oIndex, 1);
+                        bullets.splice(bIndex, 1);
+                        score++; // Incrementar el puntaje al destruir un obstáculo azul
+                    }
+                });
+
+                redObstacles.forEach((redObstacle, rIndex) => {
+                    if (rectCircleCollision(bullet, redObstacle)) {
+                        redObstacles.splice(rIndex, 1);
+                        bullets.splice(bIndex, 1);
+                        score += 5; // Incrementar el puntaje en 5 al destruir una bola roja
+                    }
+                });
+            });
+
+            // Cambiar a modo noche después de 100 puntos
+            if (score >= 100) {
+                isDay = false;
+            }
+        }
+
+        // Dibujar el juego
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Dibujar fondo según el modo día o noche
+            if (isDay) {
+                ctx.fillStyle = '#44B8D1'; // Color de fondo día
+            } else {
+                ctx.fillStyle = '#291EA0'; // Color de fondo noche
+            }
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            if (isDay) {
+                ctx.drawImage(sunImage, 20, 20, 100, 100); // Dibujar el sol
+                ctx.drawImage(cloudImage, 150, 20, 100, 100); // Dibujar la nube
+                ctx.drawImage(cloudImage, 300, 20, 100, 100); // Dibujar la nube
+                ctx.drawImage(cloudImage, 450, 20, 100, 100); // Dibujar la nube
+                ctx.drawImage(cloudImage, 600, 20, 100, 100); // Dibujar la nube
+            } else {
+                ctx.drawImage(moonImage, 20, 20, 100, 100); // Dibujar la luna
+                ctx.drawImage(starImage, 150, 20, 50, 50); // Dibujar la estrella
+                ctx.drawImage(starImage, 300, 20, 50, 50); // Dibujar la estrella
+                ctx.drawImage(starImage, 450, 20, 50, 50); // Dibujar la estrella
+                ctx.drawImage(starImage, 600, 20, 50, 50); // Dibujar la estrella
+            }
+
+            ctx.drawImage(playerImage, player.x, player.y, player.width, player.height);
+
+            bullets.forEach(bullet => {
+                ctx.fillStyle = 'red';
+                ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
+            });
+
+            obstacles.forEach(obstacle => {
+                ctx.fillStyle = obstacle.color || 'blue'; // Color amarillo para obstáculos durante el día
+                ctx.fillRect(obstacle.x, obstacle.y, obstacle.width, obstacle.height);
+            });
+
+            redObstacles.forEach(redObstacle => {
+                ctx.fillStyle = 'red';
+                ctx.beginPath();
+                ctx.arc(redObstacle.x, redObstacle.y, redObstacle.radius, 0, Math.PI * 2);
+                ctx.fill();
+            });
+
+            // Mostrar el puntaje
+            ctx.fillStyle = 'black';
+            ctx.font = '24px Arial';
+            ctx.fillText('Puntaje: ' + score, 10, 30);
+        }
+
+        // Bucle del juego
+        function gameLoop() {
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Movimiento táctil
+        canvas.addEventListener('touchstart', handleTouch);
+        canvas.addEventListener('touchmove', handleTouch);
+
+        function handleTouch(e) {
+            const touch = e.touches[0];
+            const rect = canvas.getBoundingClientRect();
+            player.x = touch.clientX - rect.left - player.width / 2;
+            player.y = touch.clientY - rect.top - player.height / 2;
+            e.preventDefault(); // Prevenir scroll accidental
+        }
+
+        // Disparo automático de balas
+        setInterval(createBullet, 100);
+    </script>
+</body>
+</html>
